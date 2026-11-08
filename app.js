@@ -1,40 +1,592 @@
 'use strict';
-const $=s=>document.querySelector(s),F=(a,b)=>`<span class="frac"><span>${a}</span><span>${b}</span></span>`,gcd=(a,b)=>b?gcd(b,a%b):a;
-const titles=['半塊蛋糕再分享','雙色蛋糕實驗室','發現計算秘訣'];
-const desc=['把「其中的幾分之幾」變成看得見的分享。','用兩個方向平均分，找出最後取出的部分。','從圖形找規律，再把發現變成計算方法。'];
-const tasks=[{a:1,b:2,c:1,d:3,name:'蛋糕'},{a:3,b:4,c:2,d:3,name:'蛋糕'},{a:2,b:3,c:1,d:2,name:'蛋糕'},{a:2,b:3,c:3,d:5,name:'蛋糕'},{a:3,b:5,c:1,d:2,name:'蛋糕'}];
-const step=(task,type,title,text)=>({task,type,title,text});
-function explore(t,first=false){let q=tasks[t];let out=[];if(first)out.push(step(t,'whole','先認識原來的整體','桌上有半個蛋糕，小明要取這半個的三分之一。先點一下原來的完整蛋糕，確認「1」是甚麼。'));out.push(step(t,'cols','先平均分成幾份？',`要表示${F(q.a,q.b)}，先選擇直向平均分的份數。`),step(t,'pickcols',`取出其中${q.a}份`,`點選${q.a}直欄，表示原來整塊的${F(q.a,q.b)}。再點一次可以取消。`));if(first)out.push(step(t,'predict','先猜一猜','只取這半塊蛋糕的三分之一，結果會比半塊多、少，還是一樣？先點選你的預測。'));out.push(step(t,'target','「其中」指哪個部分？',`現在要取「這${F(q.a,q.b)}」的${F(q.c,q.d)}。我們要再分的是哪個部分？`),step(t,'rows','換個方向，再平均分',`把藍色部分橫向平均分成${q.d}份。選擇排數；分割線會延伸到整個外框，方便比較。`),step(t,'pickrows',`取藍色部分的${q.c}份`,`點選${q.c}排。斜線只會出現在這幾排的藍色部分，表示最後取出的部分。`),step(t,'counts','回到原來的一整塊','整個外框共有多少個同樣大的小格？加上斜線的有多少格？可以點格子做記號，再數一數。'),step(t,'fraction','用分數說出你的發現','最後取出的部分，佔原來整塊的幾分之幾？先寫出圖中的分數，再寫成最簡分數。'));if(first)out.push(step(t,'reflect','回看你的預測','我們只取了半塊中的一部分。比較斜線區域與原來的半塊，再選出你的發現。'));return out;}
-const lessons=[explore(0,true),[...explore(1),...explore(2)], [step(1,'compare','兩次實驗，有甚麼相同？','重看兩幅圖。分母記錄原來整體的小格總數，分子記錄最後取出的小格數。'),step(1,'denom','12個小格從哪裏來？','看看整個外框：每排有幾格？一共有幾排？'),step(1,'numer','6個斜線格從哪裏來？','只看斜線區域：每排取了幾格？一共取了幾排？'),step(1,'formula','把圖像連上算式','把原來的四個數字填到對應位置，解釋總格數和取出格數。'),step(1,'rule','說出你的計算方法','根據剛才的發現，完成這句計算方法。'),step(3,'calc','有圖幫忙，自己試一次',`計算${F(2,3)} × ${F(3,5)}。先寫乘法結果，再約分。`),step(4,'calcHidden','收起圖形，再試一次',`計算${F(3,5)} × ${F(1,2)}。需要時可以打開圖形。`),step(4,'explain','為甚麼分母要相乘？','用每排的格數和排數解釋：第二次分割後，原來整體共有多少小格？'),step(4,'summary','把你的發現帶走','閱讀自己的研究成果，再按「完成活動」。')]];
-const KEY='fraction-kitchen-v1';const fresh=()=>({motivation:{step:0,choice:'',complete:false},m:-1,at:[0,0,0],passed:[{}, {}, {}],complete:[false,false,false],data:tasks.map(()=>({cols:1,rows:1,sc:[],sr:[],count:[]})),ans:{},hints:{}});let S;try{S=JSON.parse(localStorage.getItem(KEY));if(!S||S.data?.length!==5||!Array.isArray(S.passed))S=fresh()}catch{S=fresh()}let msg='',tone='',showModel=false,storageOK=true,reviewing=false;
-if(!S.motivation){S.motivation={step:0,choice:'',complete:false};S.m=-1;}if(!S.motivation.complete)S.m=-1;delete S.motivation.reason;delete S.motivation.basis;
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch{storageOK=false}}const cur=()=>lessons[S.m][S.at[S.m]],key=()=>`${S.m}-${S.at[S.m]}`,A=()=>S.ans[key()]||{},D=()=>S.data[cur().task],Q=()=>tasks[cur().task];
-function changed(){let i=S.at[S.m];for(let n=i;n<lessons[S.m].length;n++){delete S.passed[S.m][n];if(n>i)delete S.ans[`${S.m}-${n}`]}S.complete[S.m]=false;for(let m=S.m+1;m<3;m++){S.complete[m]=false;S.passed[m]={};S.at[m]=0;}msg='';save()}
-function setAnswer(k,v){changed();S.ans[key()]={...A(),[k]:v};save();let el=$('#feedback');if(el)el.innerHTML='';let btn=$('#next');if(btn)btn.disabled=true}
-function choice(k,v){setAnswer(k,v);render()}
-function selectCell(kind,n){let d=D();changed();if(kind==='whole'){d.whole=true}else if(kind==='col'){d.sc=d.sc.includes(n)?d.sc.filter(x=>x!==n):[...d.sc,n];d.sr=[];d.count=[]}else if(kind==='row'){d.sr=d.sr.includes(n)?d.sr.filter(x=>x!==n):[...d.sr,n];d.count=[]}else {d.count=d.count.includes(n)?d.count.filter(x=>x!==n):[...d.count,n]}save();render()}
-function partition(kind,n){changed();let d=D();if(kind==='cols'){d.cols=n;d.sc=[];d.rows=1;d.sr=[]}else{d.rows=n;d.sr=[]}d.count=[];save();render()}
-const fractionInputs=(n,d)=>`<span class="frac"><span>${input(n)}</span><span>${input(d)}</span></span>`;
-function input(k){return `<input type="number" min="0" max="99" inputmode="numeric" aria-label="${({total:'整體總格數',taken:'取出的格數',n:'答案分子',d:'答案分母',sn:'最簡分子',sd:'最簡分母',x:'每排格數',y:'排數',z:'總格數',na:'分子第一個因數',nb:'分子第二個因數',da:'分母第一個因數',db:'分母第二個因數'})[k]||k}" value="${/^\d{1,2}$/.test(String(A()[k]))?A()[k]:''}" data-field="${k}">`}
-function model(t,type,mini=false,force=false){let q=tasks[t],d=S.data[t];let early=['whole','cols'].includes(type),cols=force?q.b:type==='whole'?1:d.cols,rows=force?q.d:['rows','pickrows','counts','fraction','reflect'].includes(type)?d.rows:['denom','numer','formula','explain','calc','calcHidden','summary'].includes(type)?q.d:1;let sc=force?Array.from({length:q.a},(_,i)=>i):d.sc,sr=force?Array.from({length:q.c},(_,i)=>i):d.sr;if(['denom','numer','formula','explain','calc','calcHidden','summary'].includes(type)){cols=q.b;sc=Array.from({length:q.a},(_,i)=>i);sr=Array.from({length:q.c},(_,i)=>i)}let x=35,y=55,w=480,h=255,svg=`<svg class="model" viewBox="0 0 550 365" aria-label="${q.name}面積模型；完整外框代表1" role="group"><defs><pattern id="stripe${t}" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#88c6dd"/><path d="M-3 3L3-3M0 12L12 0M9 15L15 9" stroke="#345e53" stroke-width="2"/></pattern><pattern id="cake${t}" width="34" height="34" patternUnits="userSpaceOnUse"><rect width="34" height="34" fill="#f9ebcf"/><circle cx="8" cy="13" r="2.5" fill="#da9b97" opacity=".3"/><circle cx="26" cy="28" r="1.5" fill="#bca177" opacity=".3"/></pattern></defs><rect x="23" y="44" width="504" height="278" rx="14" fill="#fffdf7" stroke="#eadccc"/><text x="275" y="23" text-anchor="middle" class="model-label">原來的一整塊＝1</text><path d="M35 43V35H515V43" fill="none" stroke="#9aa688"/>`;
-for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){let blue=sc.includes(c)&&!early,striped=blue&&sr.includes(r)&&rows>1,id=r*cols+c;let interactive=!mini&&(['whole','pickcols','pickrows','counts'].includes(type));let kind=type==='whole'?'whole':type==='pickcols'?'col':type==='pickrows'?'row':'count',n=kind==='col'?c:kind==='row'?r:id;let label=kind==='col'?`第${c+1}欄`:kind==='row'?`第${r+1}排`:`第${r+1}排第${c+1}格`;svg+=`<g ${interactive?`role="button" tabindex="0" aria-label="${type==='whole'?'原來的完整蛋糕':label}" data-kind="${kind}" data-n="${n}"`:''}><rect class="cell" x="${x+c*w/cols}" y="${y+r*h/rows}" width="${w/cols}" height="${h/rows}" fill="${striped?`url(#stripe${t})`:blue?'#88c6dd':`url(#cake${t})`}" stroke="#fffdf5" stroke-width="3"/>${type==='counts'&&d.count.includes(id)?`<circle cx="${x+(c+.5)*w/cols}" cy="${y+(r+.5)*h/rows}" r="15" fill="#fffdf4"/><text x="${x+(c+.5)*w/cols}" y="${y+(r+.5)*h/rows+5}" text-anchor="middle" font-size="15" fill="#345e53">${d.count.indexOf(id)+1}</text>`:''}</g>`}svg+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="none" stroke="${d.whole&&type==='whole'?'#d89042':'#53644d'}" stroke-width="${d.whole&&type==='whole'?5:3}" pointer-events="none"/>`;
-if(['denom','explain'].includes(type))svg+=`<text x="275" y="343" text-anchor="middle" class="model-label">每排 ${q.b} 格 × ${q.d} 排</text>`;if(type==='numer')svg+=`<text x="275" y="343" text-anchor="middle" class="model-label">斜線區域：每排 ${q.a} 格 × ${q.c} 排</text>`;return svg+'</svg>'}
-function opt(v,label,k='choice',sel=A()[k]){return `<button class="opt ${sel===v?'selected':''}" data-choice="${k}" data-value="${v}" aria-pressed="${sel===v}">${label}</button>`}
-function fields(){let s=cur(),q=Q(),d=D();switch(s.type){case'whole':return `<div class="top-note">${d.whole?'✓ 已選出原來的整個蛋糕。':'在左邊的完整蛋糕上點一下。'}</div>`;case'cols':case'rows':{let k=s.type;return `<div class="options">${[2,3,4,5].map(n=>`<button class="opt ${d[k]===n?'selected':''}" data-part="${k}" data-n="${n}">${n} ${k==='cols'?'直欄':'排'}</button>`).join('')}</div>`}case'pickcols':case'pickrows':return `<p class="top-note">已選 ${s.type==='pickcols'?d.sc.length:d.sr.length} ${s.type==='pickcols'?'欄':'排'}，請選 ${s.type==='pickcols'?q.a:q.c} ${s.type==='pickcols'?'欄':'排'}。</p>`;case'predict':case'reflect':return `${s.type==='reflect'?'<p class="top-note">剛才對半塊份量的預測：'+({less:'比半塊少',same:'與半塊一樣',more:'比半塊多'}[S.ans['0-3']?.choice]||'尚未記錄')+'。現在可以根據圖形修正想法。</p>':''}${s.type==='reflect'?motivationRecall():''}<div class="options">${opt('less','比半塊少')}${opt('same','與半塊一樣')}${opt('more','比半塊多')}</div>`;case'target':return `<div class="options">${opt('whole','原來整塊')}${opt('blue','藍色部分')}</div>`;case'counts':return `<div class="answers"><label>整體共有 ${input('total')} 格</label><label>斜線部分 ${input('taken')} 格</label></div>`;case'fraction':case'calc':case'calcHidden':return `<div class="answers">${s.type==='fraction'?'圖中分數':'乘法結果'} ${fractionInputs('n','d')}</div><div class="answers" style="margin-top:14px">最簡分數 ${fractionInputs('sn','sd')}</div>${s.type==='calcHidden'?'<button class="textbtn" id="toggleModel">'+(showModel?'收起圖形':'＋ 用圖幫我')+'</button>':''}`;case'compare':return `<div class="options">${opt('area','兩幅圖都在取原來一部分的其中幾份')}${opt('add','兩幅圖都把兩份食物加起來')}</div>`;case'denom':case'numer':case'explain':return `<div class="answers"><label>每排 ${input('x')} 格</label><label>共有 ${input('y')} 排</label><label>一共 ${input('z')} 格</label></div>`;case'formula':return `<div class="equation">${F(q.a,q.b)} × ${F(q.c,q.d)} = ${F(`${input('na')} × ${input('nb')}`,`${input('da')} × ${input('db')}`)}</div>`;case'rule':return `<div class="options">${opt('multiply','分子與分子相乘，分母與分母相乘')}${opt('add','分子與分子相乘，分母相加')}${opt('keep','分子與分子相乘，分母保持不變')}</div>`;case'summary':return `<p class="instruction">你已經從面積圖發現：先找整體的小格總數，再找最後取出的小格數。</p><div class="equation">${F(3,5)} × ${F(1,2)} = ${F(3,10)}</div><p class="top-note">取一部分的其中一部分，面積會比原來所選的部分小。</p>`;default:return''}}
-function hint(){let s=cur(),q=Q(),h=S.hints[key()]||0;if(!h)return'';const map={whole:['完整外框代表原來的一整塊。','請把整個蛋糕當作1。','點一下蛋糕上的任何位置。'],cols:[`先看第一個分數的分母。`,`分母表示整體平均分成幾份。`,`請選 ${q.b} 直欄。`],pickcols:[`看第一個分數的分子。`,`分子表示要取多少欄。`,`請選 ${q.a} 欄；再點已選欄可以取消。`],rows:[`看第二個分數的分母。`,`把藍色部分換個方向平均分。`,`請選 ${q.d} 排。`],pickrows:[`看第二個分數的分子。`,`每一排都是藍色部分的一等份。`,`選 ${q.c} 排，只取其中的藍色格子。`],counts:['答案要與原來完整外框比較。',`每排 ${q.b} 格，共 ${q.d} 排；斜線每排 ${q.a} 格，共 ${q.c} 排。`,`整體 ${q.b*q.d} 格，斜線 ${q.a*q.c} 格。`],fraction:['分母是原來整體的小格總數。',`分子是斜線格數；分母是全部格數。`,`先寫 ${q.a*q.c}/${q.b*q.d}，再用同一個公因數約分。`],target:['留意「其中」的意思。','不是再取整塊的一部分，而是取已選部分的一部分。','請選藍色部分。'],predict:['可以先保留你的猜想。','只取半塊中的一部分。','完成操作後再比較大小。'],reflect:['比較斜線區域與原來的半塊。','斜線只佔半塊中的一份。','結果比半塊少。'],denom:['留意完整外框的行列。',`每排 ${q.b} 格，共 ${q.d} 排。`,'總格數＝每排格數×排數。'],numer:['只看斜線的行列。',`每排 ${q.a} 格，共 ${q.c} 排。`,'取出格數＝每排取出格數×取出排數。'],formula:['分子記錄最後取出的格數。','分母記錄整體的小格總數。',`上面填 ${q.a} × ${q.c}，下面填 ${q.b} × ${q.d}。`],rule:['想想剛才如何計算格數。','行列用乘法求格數。','分子與分子相乘；分母與分母相乘。'],explain:['回到原來完整外框。',`每排 ${q.b} 格，共 ${q.d} 排。`,'兩個分母相乘，就是整體的小格總數。']};let tips=map[s.type]||['需要時可用圖檢查。',`分子 ${q.a}×${q.c}，分母 ${q.b}×${q.d}。`,'先計算，再約分。'];return `<div class="hintbox">提示 ${h}/3 · ${tips[Math.min(h,3)-1]}</div>`}
-function validate(){let s=cur(),q=Q(),d=D(),a=A(),n=k=>Number(a[k]),has=(...keys)=>keys.every(k=>a[k]!==undefined&&a[k]!==''&&Number.isInteger(n(k))&&n(k)>=0);switch(s.type){case'whole':return d.whole||'請先點選完整蛋糕，認識原來的整體。';case'cols':return d.cols===q.b||'再看看第一個分數的分母，應平均分成幾份？';case'pickcols':return d.sc.length===q.a||`請選 ${q.a} 欄，目前選了 ${d.sc.length} 欄。`;case'rows':return d.rows===q.d||'再看看第二個分數的分母，應平均分成幾排？';case'pickrows':return d.sr.length===q.c||`請選 ${q.c} 排，目前選了 ${d.sr.length} 排。`;case'predict':return !!a.choice||'先選一個預測，稍後用操作驗證。';case'reflect':return a.choice==='less'||'斜線區域是半塊的一部分，再比較兩者大小。';case'target':return a.choice==='blue'||'「其中」是指剛才已選的藍色部分。';case'counts':return has('total','taken')&&n('total')===q.b*q.d&&n('taken')===q.a*q.c||'分開數完整外框及斜線部分；留意原來整體仍是1。';case'fraction':case'calc':case'calcHidden':{let num=q.a*q.c,den=q.b*q.d,g=gcd(num,den);if(!has('n','d')||!n('d')||n('n')*den!==n('d')*num)return '再檢查分子和分母；分母表示整體總格數。';if(!has('sn','sd'))return '乘法結果正確！現在請把下面的最簡分數填好。';return n('sn')===num/g&&n('sd')===den/g||'上面的結果正確，再試着把分子和分母同除以公因數。'}case'compare':return a.choice==='area'||'這兩次都是取已選部分的其中幾份。';case'denom':case'explain':return has('x','y','z')&&n('x')===q.b&&n('y')===q.d&&n('z')===q.b*q.d||'看完整外框：每排格數×排數＝整體格數。';case'numer':return has('x','y','z')&&n('x')===q.a&&n('y')===q.c&&n('z')===q.a*q.c||'只數斜線區域：每排取出格數×取出排數。';case'formula':return has('na','nb','da','db')&&((n('na')===q.a&&n('nb')===q.c)||(n('na')===q.c&&n('nb')===q.a))&&((n('da')===q.b&&n('db')===q.d)||(n('da')===q.d&&n('db')===q.b))||'把兩個分子放在分數線上方，兩個分母放在下方。';case'rule':return a.choice==='multiply'||'回想每排格數和排數，是怎樣得出總格數的？';default:return true}}
-function check(){let v=validate();if(v===true){S.passed[S.m][S.at[S.m]]=true;tone='good';msg=cur().type==='predict'?'已保留你的預測，繼續操作來驗證。':cur().type==='rule'?'你發現了：分子相乘，分母相乘！':'✓ 完成這一步！可以繼續探索。'}else{tone='bad';msg=v}save();render()}
-function render(){if(S.m===-1){renderIntro();return}let s=cur(),q=Q(),i=S.at[S.m],passed=S.passed[S.m][i],done=S.complete[S.m]&&!reviewing,numDone=S.complete.filter(Boolean).length;let visual=s.type==='compare'?`<div class="comparison">${[0,1].map(t=>`<div class="mini">${model(t,'fraction',true,true)}<p>${F(tasks[t].a,tasks[t].b)} × ${F(tasks[t].c,tasks[t].d)}</p></div>`).join('')}</div>`:s.type==='rule'?`<div class="formula-card"><p>從圖像得到的格數</p><div class="equation">${F('3 × 2','4 × 3')} = ${F(6,12)} = ${F(1,2)}</div><p>上面：最後取出的格數<br>下面：原來整體的格數</p></div>`:s.type==='calcHidden'&&!showModel?`<div class="formula-card"><p>把剛才的發現用起來</p><div class="equation">${F(q.a,q.b)} × ${F(q.c,q.d)} = ?</div><p>先試着計算，需要時再打開圖形。</p></div>`:model(s.task,s.type,false,['calc','calcHidden','summary'].includes(s.type));
-$('#app').innerHTML=`<header><div class="brand"><div class="logo"><img src="strawberry-cake.png" alt=""></div><div><b>分數料理研究所</b><div class="small">THE LITTLE FRACTION BAKERY</div></div></div><div class="header-right"><span class="save ${storageOK?'':'saved-alert'}">${storageOK?'● 進度自動保存於這部裝置':'進度暫時只能保留於本頁'}</span><button class="textbtn" id="reset">重新開始</button></div></header><div class="layout"><aside><div class="eyebrow">今日的蛋糕任務</div><button class="nav intro-nav" id="introNav"><span class="num">${S.motivation.complete?'✓':'00'}</span><span><strong>兩張訂單，一樣多嗎？</strong><small>先預測，再動手驗證</small></span></button>${titles.map((t,m)=>`<button class="nav ${S.m===m?'active':''}" data-nav="${m}" ${m>0&&!S.complete[m-1]?'disabled':''}><span class="num">${S.complete[m]?'✓':m+1}</span><span><strong>${t}</strong><small>${S.complete[m]?'已完成':m>0&&!S.complete[m-1]?'完成上一活動後解鎖':['生活中的分數','動手建立模型','發現運算方法'][m]}</small></span></button>`).join('')}<div class="aside-note"><img class="aside-chef" src="chef-bunny.png" alt="兔兔糕點師"><div class="leaf">✧</div>慢慢想，動手試。<br>每一次修改，<br>都是新的發現。<br><br>已完成 ${numDone} / 3 個活動</div></aside><main class="main"><div class="bakery-ribbon"><span>一份好奇心，兩匙新發現。</span><small>歡迎來到分數蛋糕店</small></div><div class="kicker"><span class="dot"></span>ACTIVITY 0${S.m+1} · ${['分享與觀察','分割與選取','連結與運算'][S.m]}</div><h1>${titles[S.m]}</h1><p class="subtitle">${desc[S.m]}</p><div class="stepbar"><div class="track">${lessons[S.m].map((_,j)=>`<i class="${S.passed[S.m][j]?'done':''}"></i>`).join('')}</div><span>${done?'活動完成':`步驟 ${i+1} / ${lessons[S.m].length}`}</span></div>${done?`<div class="workspace" style="display:block"><div class="complete"><img class="celebration-cake" src="strawberry-cake.png" alt="草莓奶油蛋糕"><div class="small">EXPLORATION COMPLETE</div><h2>${S.m===2?'你完成了分數料理研究！':'這次的發現，完成了！'}</h2><p>${['你完成了蛋糕分享實驗。請用圖形向同桌說明你的發現。','先分直欄，再分橫排；最後取出的格數，要與整體比較。','分子相乘，分母相乘；計算後再約分。'][S.m]}</p><div class="equation">${S.m===0?'':S.m===1?`${F(3,4)} × ${F(2,3)} = ${F(1,2)}`:`${F(2,3)} × ${F(3,5)} = ${F(2,5)}`}</div>${S.m<2?'<button class="primary" id="nextLesson">前往下一個活動 →</button>':'<p>你的進度已保存，可以返回各活動重看操作。</p>'}<br><button class="textbtn reviewbtn" id="review">回看這個活動</button></div></div>`:`<div class="workspace"><section class="canvas" aria-label="互動模型"><div class="canvas-top"><span>◈ ${s.type==='compare'?'我的實驗紀錄':q.name+'觀察台'}</span><span class="pill">原來整體始終是 1</span></div><div class="board">${visual}</div><div class="legend"><span><i class="swatch blank"></i>原來整體的其他部分</span><span><i class="swatch"></i>第一次取出的部分</span><span><i class="swatch stripe"></i>最後取出的部分</span></div><div class="canvas-foot">${['pickcols','pickrows','counts','whole'].includes(s.type)?'點選圖形來操作 · 再點一次可取消':'先觀察，再動手選一選'}</div></section><section class="control"><div class="tag">小任務 ${String(i+1).padStart(2,'0')}</div><h2>${s.title}</h2><p class="instruction">${s.text}</p><div id="fields">${fields()}</div><div id="feedback" aria-live="polite">${msg?`<div class="message ${tone}">${msg}</div>`:''}</div>${hint()}<div class="actions">${s.type==='summary'?'<button class="primary" id="finish">完成活動 ✓</button>':`<button class="secondary" id="check">檢查</button><button class="primary" id="next" ${passed?'':'disabled'}>${i===lessons[S.m].length-1?'完成活動':'下一步'} →</button>`}</div></section></div><div class="tools"><div><button class="textbtn" id="back" ${i===0?'disabled':''}>← 上一步</button><button class="textbtn" id="undo">復原一步</button><button class="textbtn" id="redo">重做本步</button></div><button class="hintbtn" id="hint">✧ 我需要提示 ${S.hints[key()]?`(${S.hints[key()]}/3)`:''}</button></div>`}<div class="chefnote"><img class="cheficon" src="chef-bunny.png" alt=""><span><strong>研究小提醒</strong><br>${['先確認哪個範圍代表原來整個蛋糕，再觀察最後取出的部分。','第二次選取的是藍色部分的其中幾份；完整外框仍代表原來的1。','分母的乘積表示整體總格數；分子的乘積表示最後取出的格數。'][S.m]}</span></div><div class="footerline"><span>先動手，再發現。</span><span>不計時 · 可以修改 · 一步一步學會</span></div></main></div>`;bind()}
-let undoStack=[];function remember(){undoStack.push(JSON.stringify(S));if(undoStack.length>20)undoStack.shift()}
-function bind(){document.querySelectorAll('[data-field]').forEach(el=>el.oninput=()=>{remember();setAnswer(el.dataset.field,el.value)});document.querySelectorAll('[data-choice]').forEach(el=>el.onclick=()=>{remember();choice(el.dataset.choice,el.dataset.value)});document.querySelectorAll('[data-part]').forEach(el=>el.onclick=()=>{remember();partition(el.dataset.part,+el.dataset.n)});document.querySelectorAll('[data-kind]').forEach(el=>{el.onclick=()=>{remember();selectCell(el.dataset.kind,+el.dataset.n)};el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.onclick()}}});document.querySelectorAll('[data-nav]').forEach(el=>el.onclick=()=>{S.m=+el.dataset.nav;reviewing=false;msg='';undoStack=[];showModel=false;save();render()});let on=(id,fn)=>{let e=$('#'+id);if(e)e.onclick=fn};on('introNav',()=>{S.m=-1;msg='';save();render()});on('check',check);on('next',()=>{if(!S.passed[S.m][S.at[S.m]])return;advance()});on('finish',()=>{S.passed[S.m][S.at[S.m]]=true;advance()});on('nextLesson',()=>{S.m++;msg='';showModel=false;undoStack=[];save();render();window.scrollTo({top:0,behavior:'smooth'})});on('back',()=>{S.at[S.m]--;msg='';showModel=false;undoStack=[];save();render()});on('review',()=>{reviewing=true;S.at[S.m]=0;msg='';save();render()});on('hint',()=>{S.hints[key()]=Math.min(3,(S.hints[key()]||0)+1);save();render()});on('toggleModel',()=>{showModel=!showModel;render()});on('reset',()=>{if(confirm('要清除這部裝置的所有學習進度，重新開始嗎？')){S=fresh();msg='';undoStack=[];save();render()}});on('undo',()=>{if(undoStack.length){S=JSON.parse(undoStack.pop());msg='';save();render()}else{msg='這一步還沒有可復原的操作。';tone='bad';render()}});on('redo',()=>{remember();let d=D(),type=cur().type;changed();delete S.ans[key()];if(type==='whole')d.whole=false;if(type==='cols'){d.cols=1;d.sc=[];d.rows=1;d.sr=[]}if(type==='pickcols'){d.sc=[];d.sr=[]}if(type==='rows'){d.rows=1;d.sr=[]}if(type==='pickrows')d.sr=[];d.count=[];save();render()})}
-function advance(){if(S.at[S.m]===lessons[S.m].length-1){S.complete[S.m]=true;reviewing=false}else S.at[S.m]++;msg='';showModel=false;undoStack=[];save();render()}
-const predictionLabels={same:'兩位客人一樣多',a:'訂單A較多',b:'訂單B較多',unsure:'我還不確定'};
-const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function motivationRecall(){return `<div class="prediction-recall"><b>回看兩張訂單</b><p>你最初預測：${predictionLabels[S.motivation.choice]||'尚未記錄'}。</p><p>現在想一想：原來整個的三分之一，和半個的三分之一，是否一樣多？</p></div>`}
-function renderIntro(){let intro=S.motivation,stage=intro.step;
-$('#app').innerHTML=`<header class="bakery-header"><div class="brand"><div class="logo"><img src="strawberry-cake.png" alt=""></div><div><b>分數料理研究所</b><div class="small">THE LITTLE FRACTION BAKERY</div></div></div><div class="header-right"><span class="save">${storageOK?'● 預測自動保存於這部裝置':'本頁暫時無法保存進度'}</span><button class="textbtn" id="introReset">重新開始</button></div></header><main class="intro-main"><section class="welcome-hero"><div class="welcome-copy"><div class="bakery-label">今日開店 · 一起學會分享</div><h1>歡迎來到<br><em>分數蛋糕店</em></h1><p>兩張看起來很相似的訂單，<br>會得到一樣多的蛋糕嗎？</p></div><img class="welcome-bunny" src="chef-bunny.png" alt="兔兔糕點師邀請你一起探索"></section><div class="intro-stepper" aria-label="引起動機步驟">${['讀一讀訂單','點選我的預測','帶着問題出發'].map((t,n)=>`<span class="${stage===n?'current':''} ${n<stage?'done':''}"><i>${n<stage?'✓':n+1}</i>${t}</span>`).join('')}<small>開店小挑戰 · 約5分鐘</small></div><div class="intro-layout"><section class="order-area"><div class="order-heading"><span class="eyebrow">TWO ORDERS, ONE QUESTION</span><h2>兩張訂單，一樣多嗎？</h2><p>兩個蛋糕原來一樣大，每個完整蛋糕都代表「1」。</p></div><div class="order-cards">${['A','B'].map((l,k)=>`<article class="order-card ${k?'mint':'pink'}"><div class="order-top"><span>訂單 ${l}</span><small>小小蛋糕店</small></div><img class="order-cake" src="strawberry-cake.png" alt="訂單${l}所參考的原來完整蛋糕"><span class="whole-caption">原來完整的蛋糕＝1</span><p>${k?'我要<span>半個蛋糕</span>的':'我要<span>原來整個蛋糕</span>的'}<strong>三分之一。</strong></p><div class="receipt-bottom">先保留你的想法，稍後動手驗證。</div></article>`).join('')}</div><div class="talk-prompt"><span>✧</span><div><b>先和同桌說一說</b><p>兩位客人都說「三分之一」，收到的蛋糕就一定一樣多嗎？</p></div></div></section><section class="intro-control"><div class="tag">糕點師的開店任務 · ${stage+1}/3</div>${stage===0?`<h2>讀清楚，才分享。</h2><p>今天你是小小糕點師。先讀兩張訂單，想一想客人想要多少蛋糕。</p><div class="chef-speech"><img src="chef-bunny.png" alt=""><span>同樣說「三分之一」，<br>份量一定相同嗎？</span></div><button class="primary" id="introNext">我要作出預測 →</button>`:stage===1?`<h2>你覺得誰拿得較多？</h2><p>點選你的預測，再用蛋糕模型探索。你也可以選「我還不確定」。</p><div class="prediction-options">${Object.entries(predictionLabels).map(([v,l])=>`<button class="opt ${intro.choice===v?'selected':''}" data-prediction="${v}" aria-pressed="${intro.choice===v}">${l}</button>`).join('')}</div><div class="talk-prompt"><span>✧</span><div>想一想：兩張訂單有甚麼相同和不同？</div></div><button class="primary" id="introNext" ${!intro.choice?'disabled':''}>保留這個預測，繼續 →</button>`:`<h2>用實驗找證據。</h2><p>接下來，親手分割和選取蛋糕。觀察後，再回想自己的預測。</p><div class="prediction-note"><b>我的預測</b><p>${predictionLabels[intro.choice]||'尚未點選'}</p></div><div class="chef-speech"><img src="chef-bunny.png" alt=""><span>親手試一試，<br>看看你會發現甚麼！</span></div><button class="primary" id="startCake" ${!intro.choice?'disabled':''}>${intro.complete?'返回蛋糕分享活動':'帶着問題，開始分蛋糕'} →</button>`}${stage>0?'<button class="textbtn" id="introBack">← 回到上一步</button>':''}</section></div><div class="intro-footer"><span>先預測 → 動手驗證 → 解釋發現</span><span>3個蛋糕活動，逐步學會分數乘法。</span></div></main>`;
-const on=(id,fn)=>{let e=$('#'+id);if(e)e.onclick=fn};on('introNext',()=>{if(stage===1&&!intro.choice)return;intro.step=Math.min(2,stage+1);save();render()});on('introBack',()=>{intro.step--;save();render()});document.querySelectorAll('[data-prediction]').forEach(el=>el.onclick=()=>{intro.choice=el.dataset.prediction;save();render()});on('startCake',()=>{if(!intro.choice)return;intro.complete=true;S.m=0;reviewing=false;msg='';undoStack=[];save();render();window.scrollTo({top:0,behavior:'smooth'})});on('introReset',()=>{if(confirm('要清除這部裝置的所有學習進度，重新開始嗎？')){S=fresh();save();render()}})
+
+const app = document.querySelector('#app');
+const classes = ['4A', '4B', '4C'];
+const range = n => Array.from({ length: n }, (_, i) => i);
+const fraction = (n, d) => `<span class="fraction" aria-label="${d}分之${n}"><span>${n}</span><span>${d}</span></span>`;
+const f = fraction;
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+const times = (a, b, c, d) => `${f(a,b)} <span>×</span> ${f(c,d)}`;
+const chosen = (value, key) => value === key ? 'true' : 'false';
+
+const choices = (id, title, text, options, answer, feedback, extra = {}) =>
+  ({ id, title, text, options, answer, feedback, kind: 'choice', ...extra });
+const fields = (id, title, text, inputs, feedback, extra = {}) =>
+  ({ id, title, text, inputs, feedback, kind: 'fields', ...extra });
+const input = (name, label, answer) => ({ name, label, answer });
+const card = (id, title, text, kind, more = {}) => ({ id, title, text, kind, ...more });
+const sizeOptions = [['less','較少'],['same','一樣多'],['more','較多']];
+
+const halfHalf = { id:'hh', a:1, b:2, c:1, d:2, intro:true };
+const halfThird = { id:'ht', a:1, b:2, c:1, d:3 };
+const threeQuarter = { id:'tq', a:3, b:4, c:2, d:3 };
+const practiceModel = { id:'pm', a:2, b:3, c:1, d:2 };
+
+function modelSteps(q) {
+  const {id,a,b,c,d} = q;
+  const p = f(a,b), r = f(c,d), top = a*c, bottom = b*d, divisor = gcd(top,bottom);
+  const steps = [];
+  if (!q.intro) {
+    steps.push(
+      choices(id+'-columns', '先找出原有部分', `要表示整個蛋糕的 ${p}，先把蛋糕直分成多少等份？`,
+        [2,3,4,5].map(n => [String(n), n+' 等份']), String(b), `整個蛋糕直分成 ${b} 等份。`,
+        { q, part:'columns', hint:'分母表示把整個蛋糕平均分成多少份。' }),
+      card(id+'-pick-cols', '選出剩下的蛋糕', `點選 ${a} 直欄，表示原來整個蛋糕的 ${p}。再點一次可取消。`,
+        'pick-cols', { q, part:'pick-cols', feedback:`淺綠色部分是原來整個蛋糕的 ${p}。`, hint:'分子告訴你要選多少欄。' })
+    );
+  }
+  steps.push(
+    choices(id+'-rows', '再把剩下的蛋糕等分', `取剩下部分的 ${r}。應把這部分橫分成多少等份？`,
+      [2,3,4,5].map(n => [String(n), n+' 等份']), String(d), `把剩下部分橫分成 ${d} 等份。`,
+      { q, part:'rows', hint:`看第二個分數 ${r} 的分母。這次要分的是淺綠色部分。` }),
+    card(id+'-pick-rows', '從剩下部分取出蛋糕', `點選 ${c} 橫行。斜線會標出在淺綠色部分中最後取走的蛋糕。`,
+      'pick-rows', { q, part:'pick-rows', feedback:`你取出了剩下部分的 ${r}。`, hint:'看第二個分數的分子，然後點選相應數目的橫行。' }),
+    fields(id+'-count', '數一數整個外框', '分割線延伸至原來的外框。數出整個蛋糕的格數，以及畫了斜線的格數。',
+      [input('total','整個外框共有多少格',bottom),input('taken','畫了斜線的有多少格',top)],
+      `原來整個蛋糕有 ${bottom} 格，取走的部分有 ${top} 格。`,
+      { q, part:'count', hint:'整個外框包括米白色部分。只數斜線格便能找出取走的部分。' }),
+    fields(id+'-result', '填寫取走部分的分數', '取走的部分佔原來整個蛋糕的幾分之幾？先按圖填寫分數。',
+      [input('n','分子',top),input('d','分母',bottom)],
+      `${times(a,b,c,d)} = ${f(top,bottom)}`,
+      { q, part:'result', fraction:true, hint:'分子是畫了斜線的格數。分母是整個外框的格數。' })
+  );
+  if (divisor > 1 && !q.practice) {
+    steps.push(fields(id+'-simplify', '把答案約成最簡分數', `將 ${f(top,bottom)} 約分。`,
+      [input('n','分子',top/divisor),input('d','分母',bottom/divisor)],
+      `${f(top,bottom)} = ${f(top/divisor,bottom/divisor)}`,
+      { q, part:'result', fraction:true, hint:'找一個能同時整除分子和分母的數。' }));
+  }
+  return steps;
 }
 
-save();render();
+const stages = [
+  { name:'暖身', minutes:'0–3 分鐘', steps:[
+    choices('warm-fraction','認一認蛋糕的分數','整個蛋糕平均分成 4 份。淺綠色部分佔原來整個蛋糕的幾分之幾？',
+      [['1/4',f(1,4)],['3/4',f(3,4)],['3/3',f(3,3)]], '3/4',
+      `完整蛋糕有 4 等份，淺綠色部分有 3 份，所以是 ${f(3,4)}。`,
+      { art:'warm', hint:'先數整個外框，再數淺綠色的份數。' }),
+    choices('warm-repeat','四份半個蛋糕','每人吃半個蛋糕，4 人共吃多少個蛋糕？',
+      [['1','1 個'],['2','2 個'],['4','4 個']], '2',
+      `${f(1,2)} × 4 = 2。四份半個蛋糕，可以拼成兩個完整蛋糕。`,
+      { art:'halves', hint:'每兩份半個蛋糕可以拼成一個完整蛋糕。' })
+  ]},
+  { name:'蛋糕店訂單', minutes:'3–8 分鐘', steps:[
+    choices('order-guess','客人想買 4 個蛋糕的一半','先猜一猜。客人買的分量和原來的 4 個蛋糕相比，會怎樣？',
+      [...sizeOptions,['unsure','還未確定']], null, '已記下你的猜想。下一步用蛋糕驗證。',
+      { art:'order', action:'記下猜想' }),
+    card('order-group','把 4 個蛋糕平均分成兩組','把每個蛋糕拖到托盤。也可以先點蛋糕，再點托盤。',
+      'group', { art:'order', feedback:'兩個托盤各有 2 個蛋糕。', hint:'兩組的蛋糕數量要一樣多。' }),
+    choices('order-pick','取走其中一組','要取 4 個蛋糕的一半，請選一個托盤。',
+      [['A','取托盤 A'],['B','取托盤 B']], ['A','B'], '任選其中一個托盤，都是取 4 個蛋糕的一半。',
+      { art:'order' }),
+    fields('order-count','客人買了多少個蛋糕？','數一數所選托盤上的蛋糕。', [input('value','取走的蛋糕數量',2)],
+      `4 × ${f(1,2)} = 2。把 4 個蛋糕平均分成 2 組，取其中 1 組。`,
+      { art:'order', hint:'看你剛才選的那個托盤。' })
+  ]},
+  { name:'半個再取一半', minutes:'8–14 分鐘', steps:[
+    choices('bridge-one','如果只剩 1 個蛋糕','客人同樣要買一半。請點選一份，再確認你的選擇。',
+      [['left','取左半'],['right','取右半']], ['left','right'],
+      `1 × ${f(1,2)} = ${f(1,2)}。一個蛋糕的二分之一，就是半個蛋糕。`, { art:'one' }),
+    choices('bridge-guess','如果只剩半個蛋糕','客人買了「這半個的一半」。和原來剩下的半個相比，你估計他買了多少？',
+      [...sizeOptions,['unsure','還未確定']], null, '已記下你的猜想。接下來看看半個蛋糕可以怎樣再等分。',
+      { q:halfHalf, part:'original', action:'記下猜想' }),
+    ...modelSteps(halfHalf),
+    card('bridge-review','每次都取原來數量的一半','想一想。這三張訂單中，哪一個數在改變？',
+      'info', { art:'bridge', feedback:'第一個數是原來的數量。第二個數都是二分之一，表示取原來數量的一半。' })
+  ]},
+  { name:'分數乘法探究', minutes:'14–24 分鐘', steps:[
+    ...modelSteps(halfThird).map(step => ({...step, context:'訂單 A　半個蛋糕的三分之一'})),
+    ...modelSteps(threeQuarter).map(step => ({...step, context:'訂單 B　四分之三個蛋糕的三分之二'}))
+  ]},
+  { name:'發現計算規律', minutes:'24–29 分鐘', steps:[
+    fields('rule-total','分母從哪裏來？','看看整個外框。填出每行格數及總行數。',
+      [input('per','每行格數',4),input('rows','總行數',3)],
+      '4 × 3 = 12。兩個分母相乘，得到整個外框的格數。',{q:threeQuarter,part:'result',hint:'整個外框包括米白色部分。'}),
+    fields('rule-pick','分子從哪裏來？','只看有斜線的部分。填出每個選中行的斜線格數及選中的行數。',
+      [input('per','每行斜線格數',3),input('rows','選中的行數',2)],
+      '3 × 2 = 6。兩個分子相乘，得到最後取走的格數。',{q:threeQuarter,part:'result',hint:'橫着數一行斜線格，再數有斜線的橫行。'}),
+    card('rule-summary','把圖像連成算式','分子乘分子，分母乘分母，最後把答案約成最簡分數。',
+      'info',{art:'rule',feedback:'圖中的分母是全體格數，分子是最後取走的格數。'})
+  ]},
+  { name:'獨立練習', minutes:'29–37 分鐘', steps:[
+    fields('practice-a','看圖完成乘法',`用蛋糕圖找出 ${times(2,3,1,2)}，把答案約成最簡分數。`,
+      [input('n','分子',1),input('d','分母',3)],
+      `${times(2,3,1,2)} = ${f(2,6)} = ${f(1,3)}`,
+      { q:practiceModel,part:'practice',fraction:true,hint:'先在淺綠色部分選一橫行。數出斜線格與整體格數，再約分。' }),
+    fields('practice-b','用計算方法完成',`計算 ${times(2,3,3,5)}。答案寫成最簡分數。`,
+      [input('n','分子',2),input('d','分母',5)],
+      `${times(2,3,3,5)} = ${f(6,15)} = ${f(2,5)}`,
+      {fraction:true,art:'practice',hint:'分子相乘、分母相乘，再把結果約分。',hintModel:true}),
+    choices('practice-size','不用計算也能比較',`${times(4,5,1,2)} 的積和 ${f(4,5)} 相比，會怎樣？`,sizeOptions,'less',
+      `積比 ${f(4,5)} 小。接下來選出原因。`,
+      {art:'size',hint:'乘以二分之一，就是從原來的數量取一半。'}),
+    choices('practice-why','選出你的理由','為甚麼剛才的積比原來的數量小？',
+      [['half','只取原來數量的一半'],['multiply','做乘法後，數量一定增加'],['denominator','只看分母就知道答案']],
+      'half','正數乘以大於 0、小於 1 的分數，表示取原來數量的一部分，所以積比原數小。',{art:'size'})
+  ]},
+  { name:'離堂挑戰', minutes:'37–40 分鐘', steps:[
+    card('exit','完成最後三張訂單','答完三題再一起提交。提交後可以逐題看回饋。','exit')
+  ]}
+];
+
+const hk = new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'numeric',timeZone:'Asia/Hong_Kong'})
+  .formatToParts(new Date());
+const year = Number(hk.find(p=>p.type==='year').value) - (Number(hk.find(p=>p.type==='month').value)<9 ? 1 : 0);
+const sessionKey = 'fraction-cake-lab:session';
+const fresh = () => ({ stage:0, unlocked:0, steps:stages.map(()=>0), done:{}, data:{}, models:{}, trays:['','','',''] });
+let student = null;
+let teacher = false;
+let state = fresh();
+let activeCake = null;
+let hintOpen = false;
+let message = '';
+let storeError = false;
+
+function validStudent(value) {
+  return value && value.year === year && classes.includes(value.className) &&
+    Number.isInteger(value.number) && value.number >= 1 && value.number <= 25;
+}
+function progressKey(s) { return `fraction-cake-lab:v2:${s.year}:${s.className}:${s.number}`; }
+function startStudent(next) {
+  if (!validStudent(next)) return;
+  student = next;
+  teacher = false;
+  state = fresh();
+  storeError = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(progressKey(student)));
+    if (saved && Number.isInteger(saved.stage) && saved.stage >= 0 && saved.stage < stages.length &&
+        saved.steps?.length === stages.length && saved.done && saved.data && saved.models && saved.trays?.length === 4) state = saved;
+    sessionStorage.setItem(sessionKey, JSON.stringify(next));
+  } catch { storeError = true; }
+}
+function save() {
+  if (!student) return;
+  try { localStorage.setItem(progressKey(student),JSON.stringify(state)); }
+  catch { storeError = true; }
+}
+function getStep() { return stages[state.stage].steps[state.steps[state.stage]]; }
+function values(step = getStep()) { return state.data[step.id] ||= {}; }
+function modelData(q) {
+  return state.models[q.id] ||= { cols:q.intro ? [0] : q===practiceModel ? [0,1] : [], rows:[], marks:[] };
+}
+function clearView() { activeCake = null; hintOpen = false; message = ''; }
+function header() {
+  const identity = teacher ? '教師示範' : student ? `${student.className} · ${student.number} 號` : '';
+  return `<header class="site-header"><div class="header-inner">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">♧</span><div><strong>分數蛋糕店</strong><small>THE FRACTION BAKERY</small></div></div>
+    ${identity ? `<div class="session"><span class="identity">${identity}</span><button type="button" class="quiet" data-action="leave">${teacher ? '返回入口' : '切換學生'}</button></div>` : '<span class="identity">小四數學</span>'}
+  </div></header>`;
+}
+function entrance() {
+  return `${header()}<main id="main" class="entrance">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy"><span class="tag">今日訂單 · 分數乘法</span>
+      <h1 id="hero-title">歡迎來到<br><em>分數蛋糕店</em></h1>
+      <p>從 4 個蛋糕的一半出發，把分數切開、看清楚，再寫成乘法算式。</p>
+      <div class="hero-steps"><span>01 先猜一猜</span><span>02 動手分蛋糕</span><span>03 發現乘法規律</span></div></div>
+      <div class="hero-art"><img src="./strawberry-cake.png" alt="草莓鮮奶油蛋糕"><span aria-hidden="true" class="spark one">✧</span><span aria-hidden="true" class="spark two">✦</span></div>
+    </section>
+    <section class="entry-panel" aria-labelledby="entry-title">
+      <div><span class="eyebrow">開始接單</span><h2 id="entry-title">選擇班別和學號</h2><p>進度保存在這部裝置的瀏覽器。</p></div>
+      <form id="entry-form">
+        <label>班別<select name="className" required><option value="">選擇班別</option>${classes.map(c=>`<option>${c}</option>`).join('')}</select></label>
+        <label>學號<select name="number" required><option value="">選擇學號</option>${range(25).map(i=>`<option value="${i+1}">${i+1} 號</option>`).join('')}</select></label>
+        <button class="primary" type="submit">開始學習 <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+    <footer class="entry-footer"><button type="button" class="quiet" data-action="teacher">教師示範</button><span>40 分鐘 · 7 個學習環節</span></footer>
+  </main>`;
+}
+function cakeBoard({cols, rows, original=[], picked=[], mode='', marks=[], label='原來 1 個蛋糕', id='', locked=false, partial=false}) {
+  return `<div class="cake-board"><div class="whole-label"><span></span>${label}<span></span></div>
+    <div class="cake-grid${partial?' partial':''}" style="--columns:${cols};--rows:${rows}" role="group" aria-label="${label}，${cols}欄${rows}行">
+      ${range(rows).map(r=> {
+        const rowButton = mode==='row' && !locked;
+        const cells = range(cols).map(c=>{
+          const index = r*cols+c;
+          const type = original.includes(c) ? picked.includes(r) ? 'taken' : 'original' : 'plain';
+          const cell = `class="cell ${type}${marks.includes(index)?' marked':''}"`;
+          const columnButton = mode==='column' && !locked;
+          const markButton = mode==='mark' && !locked;
+          if (columnButton || markButton) {
+            const pressed = columnButton ? original.includes(c) : marks.includes(index);
+            const name = columnButton ? `第 ${c+1} 欄` : `第 ${r+1} 行第 ${c+1} 格${type==='taken'?'，斜線格':''}`;
+            return `<button type="button" ${cell} aria-label="${name}" aria-pressed="${pressed}" data-action="${columnButton?'column':'mark'}" data-value="${columnButton?c:index}">${marks.includes(index)?'✓':''}</button>`;
+          }
+          return `<span ${cell}>${marks.includes(index)?'✓':''}</span>`;
+        }).join('');
+        return rowButton
+          ? `<button class="cake-row" type="button" data-action="row" data-value="${r}" aria-label="第 ${r+1} 橫行" aria-pressed="${picked.includes(r)}">${cells}</button>`
+          : `<div class="cake-row">${cells}</div>`;
+      }).join('')}
+    </div>
+    ${id ? `<div class="model-id">${id}</div>` : ''}
+  </div>`;
+}
+function legend() {
+  return '<div class="legend"><span><i class="original"></i>原有部分（包括斜線）</span><span><i class="taken"></i>最後取走</span></div>';
+}
+function modelArt(step, locked) {
+  const q = step.q;
+  const model = modelData(q);
+  const part = step.part;
+  const cols = part==='columns' && !locked ? 1 : q.b;
+  const rows = ['original','columns','pick-cols'].includes(part) || (part==='rows'&&!locked) ? 1 : q.d;
+  const fixed = step.id.startsWith('rule-') && !model.cols.length;
+  const original = fixed ? range(q.a) : model.cols;
+  const picked = fixed ? range(q.c) : model.rows;
+  const mode = { 'pick-cols':'column','pick-rows':'row',count:'mark',practice:'row' }[part] || '';
+  return cakeBoard({cols,rows,original,picked,mode,marks:part==='count'?model.marks:[],locked,partial:part==='rows'||part==='pick-rows'}) + legend();
+}
+function cakeIcon(index, {clickable=false,draggable=false}={}) {
+  const selected = activeCake===index;
+  const graphic = '<span class="cake-drawing" aria-hidden="true"><i></i><i></i><i></i></span>';
+  return clickable ? `<button type="button" class="cake-token ${selected?'active':''}" data-action="cake" data-value="${index}" aria-pressed="${selected}" draggable="${draggable}" aria-label="蛋糕 ${index+1}">${graphic}</button>` : `<span class="cake-token static" aria-label="完整蛋糕">${graphic}</span>`;
+}
+function orderArt(step, locked) {
+  if (step.id==='order-guess') return `<div class="cake-counter">${range(4).map(i=>cakeIcon(i)).join('')}</div><p class="figure-note">原來有 4 個蛋糕</p>`;
+  const editable = step.kind==='group' && !locked;
+  const picked = values(stages[1].steps[2]).selected;
+  const unplaced = state.trays.map((t,i)=>t===''?i:-1).filter(i=>i>=0);
+  return `<div class="order-board">
+    ${editable ? `<div class="unplaced" data-drop="">${unplaced.length ? unplaced.map(i=>cakeIcon(i,{clickable:true,draggable:true})).join('') : '<span>蛋糕已放入托盤</span>'}
+      ${activeCake!==null && state.trays[activeCake] ? '<button class="quiet" type="button" data-action="tray" data-value="">放回桌面</button>' : ''}</div>` : ''}
+    <div class="trays">${['A','B'].map(t=>{
+      const cakes = state.trays.map((place,i)=>place===t?i:-1).filter(i=>i>=0);
+      const fallback = teacher && !editable && !state.trays.some(Boolean) ? (t==='A'?[0,1]:[2,3]) : cakes;
+      return `<div class="tray ${picked===t?'selected':''}" data-drop="${t}">
+      <div class="tray-title">托盤 ${t}${picked===t?' · 已選':''}</div>
+      <div class="tray-cakes">${fallback.map(i=>cakeIcon(i,{clickable:editable,draggable:editable})).join('')}</div>
+      ${editable ? `<button class="secondary tray-button" type="button" data-action="tray" data-value="${t}" aria-disabled="${activeCake===null}">放入托盤 ${t}</button>` : ''}
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+}
+function artwork(step, locked) {
+  if (step.q) return modelArt(step, locked);
+  if (step.art==='order') return orderArt(step, locked);
+  if (step.art==='warm') return cakeBoard({cols:4,rows:1,original:[0,1,2]})+legend();
+  if (step.art==='halves') {
+    return locked ? `<div class="cake-counter">${range(2).map(i=>cakeIcon(i)).join('')}</div><p class="figure-note">拼成 2 個完整蛋糕</p>`
+      : `<div class="half-counter">${range(4).map(i=>`<div><span class="half-piece"></span><small>第 ${i+1} 人</small></div>`).join('')}</div>`;
+  }
+  if (step.art==='one') {
+    const selected = values(step).selected;
+    return cakeBoard({cols:2,rows:1,original:selected ? [selected==='left'?0:1] : [],mode:'column',locked});
+  }
+  if (step.art==='bridge') return `<div class="math-cards">
+    <div><small>4 個蛋糕</small><div class="mini-cakes" aria-label="4 個蛋糕中選了 2 個">${range(4).map(i=>`<i class="${i<2?'taken':''}"></i>`).join('')}</div><div>4 × ${f(1,2)} = 2</div></div>
+    <div><small>1 個蛋糕</small>${cakeBoard({cols:2,rows:1,original:[0],picked:[0],label:'1 個'})}<div>1 × ${f(1,2)} = ${f(1,2)}</div></div>
+    <div><small>半個蛋糕</small>${cakeBoard({cols:2,rows:2,original:[0],picked:[0],label:'1 個'})}<div>${times(1,2,1,2)} = ${f(1,4)}</div></div></div>`;
+  if (step.art==='rule') return `${cakeBoard({cols:4,rows:3,original:[0,1,2],picked:[0,1]})}
+    <div class="math-display">${times(3,4,2,3)} = ${f('3 × 2','4 × 3')} = ${f(6,12)} = ${f(1,2)}</div>`;
+  if (step.art==='practice' && hintOpen) return cakeBoard({cols:3,rows:5,original:[0,1],picked:[0,1,2]})+legend();
+  if (step.art==='practice') return `<div class="math-display standalone">${times(2,3,3,5)} = ?</div>`;
+  return `${cakeBoard({cols:5,rows:1,original:[0,1,2,3]})}<p class="figure-note">原有 ${f(4,5)} 個蛋糕</p>`;
+}
+
+function optionButtons(options, value, {action='option',locked=false,key=''}={}) {
+  return `<div class="options">${options.map(([v,t])=>
+    `<button type="button" class="option" aria-pressed="${chosen(value,v)}" data-action="${action}" data-value="${v}" data-key="${key}" ${locked?'disabled':''}>${t}</button>`
+  ).join('')}</div>`;
+}
+function numberField(field, val, locked, prefix='') {
+  const name = prefix+field.name;
+  const safeValue = /^\d{1,3}$/.test(val??'') ? val : '';
+  return `<label class="number-field"><span>${field.label}</span><input type="text" inputmode="numeric" autocomplete="off" maxlength="3" aria-label="${field.label}" data-field="${name}" value="${safeValue}" ${locked?'readonly':''}></label>`;
+}
+function answers(step, locked) {
+  const data = values(step);
+  if (step.kind==='choice') return optionButtons(step.options,data.selected,{locked});
+  if (step.kind==='fields') return `<div class="fields ${step.fraction?'fraction-fields':''}">${step.inputs.map(field=>numberField(field,data[field.name],locked)).join('')}</div>`;
+  if (step.kind==='group' && !locked) return '<p class="helper">把 4 個蛋糕都放好，再檢查兩組是否一樣多。</p>';
+  return '';
+}
+function sidebar() {
+  const progress = stages.filter(s=>state.done[s.steps.at(-1).id]).length;
+  return `<aside class="sidebar"><div class="sidebar-head"><span class="eyebrow">今天的學習路線</span><strong>${progress} / 7</strong></div>
+    <nav aria-label="學習環節">${stages.map((s,i)=>{
+      const active = i===state.stage;
+      const finished = !!state.done[s.steps.at(-1).id];
+      return `<button type="button" class="stage-button ${active?'current':''}" data-action="stage" data-value="${i}" ${active?'aria-current="step"':''} ${!teacher&&i>state.unlocked?'disabled':''}>
+        <span class="stage-number">${finished?'✓':String(i+1).padStart(2,'0')}</span><span><strong>${s.name}</strong><small>${s.minutes}</small></span>
+      </button>`;
+    }).join('')}</nav>
+    ${teacher ? '<p class="sidebar-note">可按課堂需要選擇環節。揭示答案只影響示範畫面。</p>' : ''}</aside>`;
+}
+function reportLine(step, locked) {
+  const copy = locked && step.feedback ? step.feedback : message;
+  return `<div id="feedback" role="status" tabindex="-1" class="feedback ${copy?locked?'success':'notice':'empty'}">${copy?'<span aria-hidden="true">'+(locked?'✓':'↳')+'</span><div>'+copy+'</div>':''}</div>`;
+}
+function regularStep(step) {
+  const locked = !!state.done[step.id];
+  const visualLabel = step.art==='order' ? '訂單操作枱' : step.q || step.art==='warm' || step.art==='one' ? '蛋糕模型' : '蛋糕工作枱';
+  const action = locked ? (state.steps[state.stage]===stages[state.stage].steps.length-1 ? '下一環節' : '下一步') : step.action || (step.kind==='info'?'我明白了':'檢查');
+  return `<section class="workspace"><div class="visual">
+      <div class="visual-label"><span class="small-dot"></span>${visualLabel}</div>
+      <div class="visual-body">${artwork(step,locked)}</div>
+      ${step.kind==='group'&&!locked&&activeCake!==null?'<div class="visual-tip">已選蛋糕，請點一個托盤。</div>':''}
+    </div>
+    <div class="controls"><span class="eyebrow">${step.context || '本步任務'}</span>
+      <h2 id="step-title" tabindex="-1">${step.title}</h2><p class="instruction">${step.text}</p>
+      ${answers(step,locked)}${reportLine(step,locked)}
+      ${hintOpen && step.hint ? `<div class="hint"><strong>小提示</strong><p>${step.hint}</p></div>` : ''}
+      <div class="control-actions">
+        <button type="button" class="primary" data-action="${locked?'next':'check'}">${action} <span aria-hidden="true">→</span></button>
+        ${step.hint&&!locked ? `<button type="button" class="secondary" aria-expanded="${hintOpen}" data-action="hint">${hintOpen?'收起提示':'給我提示'}</button>` : ''}
+      </div>
+      <div class="extra-actions">
+        ${teacher&&!locked&&step.kind!=='info' ? '<button type="button" class="quiet" data-action="reveal">顯示此步答案</button>' : ''}
+        ${step.q&&!locked&&['pick-cols','pick-rows','count','practice'].includes(step.part) ? '<button type="button" class="quiet" data-action="clear">清除圖上選取</button>' : ''}
+      </div>
+    </div></section>`;
+}
+
+const exitTitles = ['理解圖像','計算與約分','比較大小'];
+const exitPictures = [
+  { id:'A', original:[0,1,2], picked:[], label:'圖 A' },
+  { id:'B', original:[0,1,2], picked:[0], label:'圖 B' },
+  { id:'C', original:[0,1,2,3], picked:[0], label:'圖 C' }
+];
+const exitFeedback = [
+  '圖 B 先標出四分之三，再在這部分取一半。',
+  '分子相乘得 2，分母相乘得 12。12 格中取了 2 格，約分得 1/6。',
+  '乘以二分之一是取原來的一半，所以積比原來的正數小。'
+];
+// Keep the three original answers together so the first result reflects an independent attempt.
+function gradeExit(data) {
+  return [data.picture==='B',Number(data.n)===1&&Number(data.d)===6,data.size==='less'&&data.why==='half'];
+}
+function exitStep(step) {
+  const data = values(step);
+  const locked = !!state.done[step.id];
+  const result = locked ? gradeExit(data) : [];
+  const item = (i, body) => `<section class="exit-card"><span class="eyebrow">訂單 ${i+1} · ${exitTitles[i]}</span>${body}
+    ${locked ? `<p class="exit-feedback ${result[i]?'right':'review'}"><strong>${result[i]?'已掌握':'再看看'}</strong> ${exitFeedback[i]}</p>` : ''}</section>`;
+  return `<section class="exit-workspace"><h2 id="step-title" tabindex="-1">${step.title}</h2><p class="instruction">${step.text}</p>
+    ${item(0,`<h3>哪幅圖的斜線表示四分之三個蛋糕的一半？</h3><div class="exit-pictures">
+      ${exitPictures.map(p=>`<div class="picture-option" data-picked="${chosen(data.picture,p.id)}">
+        ${cakeBoard({cols:4,rows:2,original:p.original,picked:p.picked})}
+        <button type="button" class="option" aria-pressed="${chosen(data.picture,p.id)}" data-action="exit-option" data-key="picture" data-value="${p.id}" ${locked?'disabled':''}>選擇${p.label}</button></div>`).join('')}</div>`)}
+    ${item(1,`<h3>計算 ${times(1,4,2,3)}，把答案寫成最簡分數。</h3>
+      <div class="fields fraction-fields">${numberField(input('n','分子'),data.n,locked)}${numberField(input('d','分母'),data.d,locked)}</div>`)}
+    ${item(2,`<h3>正數乘以二分之一，積和原來的數相比會怎樣？</h3>
+      ${optionButtons(sizeOptions,data.size,{action:'exit-option',key:'size',locked})}
+      <p class="instruction">再選出原因。</p>
+      ${optionButtons([['half','只取原來的一半'],['whole','取了原來的全部'],['more','取了比原來更多的數量']],data.why,{action:'exit-option',key:'why',locked})}`)}
+    ${reportLine(step,locked)}
+    ${locked ? `<div class="result-strip">${result.map((ok,i)=>`<span><strong>${exitTitles[i]}</strong>${ok?'已掌握':'再看看'}</span>`).join('')}</div>`
+      : `<div class="control-actions"><button class="primary" type="button" data-action="check">提交三張訂單 →</button>
+      ${teacher?'<button class="quiet" type="button" data-action="reveal">顯示答案</button>':''}</div>`}
+    </section>`;
+}
+function learning() {
+  const stage = stages[state.stage];
+  const step = getStep();
+  const index = state.steps[state.stage];
+  return `${header()}<div class="layout">${sidebar()}<main id="main" class="learning">
+    <div class="lesson-heading"><div><span class="eyebrow">環節 ${String(state.stage+1).padStart(2,'0')} · ${stage.minutes}</span><h1>${stage.name}</h1></div>
+      <div class="step-status"><span>第 ${index+1} / ${stage.steps.length} 步</span>${index>0?'<button type="button" class="quiet" data-action="back">上一步</button>':''}</div></div>
+    <div class="progress" role="progressbar" aria-label="目前環節進度" aria-valuenow="${index+1}" aria-valuemin="0" aria-valuemax="${stage.steps.length}"><span style="width:${100*(index+1)/stage.steps.length}%"></span></div>
+    ${step.kind==='exit'?exitStep(step):regularStep(step)}
+    <footer class="lesson-footer">${storeError?'這部裝置暫時無法保存進度。':teacher?'教師示範 · 可從左側選擇環節':'學習進度只保存在這部裝置'}<span>分數料理研究所</span></footer>
+  </main></div>`;
+}
+function render(target) {
+  const previousScroll = app.querySelector('.sidebar nav')?.scrollLeft || 0;
+  app.innerHTML = student || teacher ? learning() : entrance();
+  const nav = app.querySelector('.sidebar nav');
+  if (nav) {
+    nav.scrollLeft = previousScroll;
+    const current = nav.querySelector('.current');
+    const outer = nav.getBoundingClientRect(), inner = current.getBoundingClientRect();
+    if (inner.left < outer.left) nav.scrollLeft += inner.left - outer.left - 6;
+    if (inner.right > outer.right) nav.scrollLeft += inner.right - outer.right + 6;
+  }
+  if (target) app.querySelector(target)?.focus({preventScroll:true});
+}
+function gotoStep() {
+  clearView();
+  save();
+  render('#step-title');
+  window.scrollTo(0,0);
+}
+function respond(text) {
+  message = text;
+  render('#feedback');
+}
+function pass(step) {
+  state.done[step.id] = true;
+  if (state.steps[state.stage]===stages[state.stage].steps.length-1) {
+    state.unlocked = Math.min(stages.length-1,Math.max(state.unlocked,state.stage+1));
+  }
+  save();
+  respond('');
+}
+function check(step) {
+  const data = values(step);
+  if (step.kind==='info') return pass(step);
+  if (step.kind==='choice') {
+    if (!data.selected) return respond('先選一個答案，再繼續。');
+    const correct = step.answer===null || [step.answer].flat().includes(data.selected);
+    return correct ? pass(step) : respond(step.hint || '再想想題目的意思，試另一個選項。');
+  }
+  if (step.kind==='group') {
+    return ['A','B'].every(t=>state.trays.filter(x=>x===t).length===2) ?
+      pass(step) : respond('請把 4 個蛋糕全部放入托盤，兩個托盤要一樣多。');
+  }
+  if (step.kind==='pick-cols' || step.kind==='pick-rows') {
+    const m = modelData(step.q);
+    const columns = step.kind==='pick-cols';
+    const count = columns ? m.cols.length : m.rows.length;
+    return count===(columns?step.q.a:step.q.c) ? pass(step) : respond(step.hint);
+  }
+  if (step.kind==='exit') {
+    if (!data.picture || !data.n || Number(data.d)<1 || !data.d || !data.size || !data.why) return respond('請答完三題，並填上大於 0 的分母。');
+    return pass(step);
+  }
+  if (step.inputs.some(({name})=>!data[name])) return respond('先填上每個空格的數字。');
+  if (step.fraction && Number(data.d)<1) return respond('分母要大於 0。');
+  if (step.part==='practice' && modelData(step.q).rows.length!==1) return respond('先在蛋糕圖上選一橫行，再檢查答案。');
+  if (step.inputs.every(({name,answer})=>Number(data[name])===answer)) return pass(step);
+  if (step.fraction) {
+    const [n,d] = step.inputs.map(field=>field.answer);
+    if (Number(data.n)*d===n*Number(data.d)) return respond(step.id.endsWith('-result')
+      ? '這個分數的大小正確。請先填寫圖上的斜線格數和總格數。'
+      : '這個分數的大小正確。請再約成最簡分數。');
+    if (step.id==='practice-b' && Number(data.n)===6 && Number(data.d)===8) {
+      return respond('分母要相乘。可開啟圖像提示，看看 3 欄和 5 行組成多少格。');
+    }
+  }
+  return respond(step.hint || '再看看圖上的資料，然後試一次。');
+}
+function reveal(step) {
+  const data = values(step);
+  if (step.kind==='choice') data.selected = [step.answer].flat()[0] || 'unsure';
+  if (step.kind==='group') state.trays = ['A','A','B','B'];
+  if (step.kind==='pick-cols') modelData(step.q).cols = range(step.q.a);
+  if (step.kind==='pick-rows' || step.part==='practice') modelData(step.q).rows = range(step.q.c);
+  if (step.kind==='fields') step.inputs.forEach(({name,answer})=>{data[name]=String(answer);});
+  if (step.kind==='exit') Object.assign(data,{picture:'B',n:'1',d:'6',size:'less',why:'half'});
+  pass(step);
+}
+function toggle(list, value) {
+  return list.includes(value) ? list.filter(v=>v!==value) : [...list,value];
+}
+function placeCake(index, tray) {
+  if (getStep().kind!=='group' || state.done[getStep().id] || !range(4).includes(index) || !['','A','B'].includes(tray)) return;
+  state.trays[index] = tray;
+  activeCake = null;
+  message = '';
+  save();
+  render(`[data-action="cake"][data-value="${index}"]`);
+}
+
+app.addEventListener('submit', event=>{
+  if (event.target.id!=='entry-form') return;
+  event.preventDefault();
+  const form = new FormData(event.target);
+  startStudent({year,className:form.get('className'),number:Number(form.get('number'))});
+  if (student) gotoStep();
+});
+app.addEventListener('input', event=>{
+  const field = event.target.dataset.field;
+  if (!field || (!student&&!teacher) || state.done[getStep().id]) return;
+  event.target.value = event.target.value.replace(/\D/g,'').slice(0,3);
+  values()[field] = event.target.value;
+  save();
+});
+app.addEventListener('keydown', event=>{
+  if (event.key==='Enter' && event.target.dataset.field && !event.target.readOnly) {
+    event.preventDefault();
+    check(getStep());
+  }
+});
+app.addEventListener('click', event=>{
+  const button = event.target.closest('button[data-action]');
+  if (!button || button.disabled) return;
+  const {action,value,key} = button.dataset;
+  if (action==='teacher') {
+    student=null;teacher=true;state=fresh();gotoStep();return;
+  }
+  if (action==='leave') {
+    save();
+    student=null;teacher=false;state=fresh();clearView();
+    try { sessionStorage.removeItem(sessionKey); } catch {}
+    render('#hero-title');window.scrollTo(0,0);return;
+  }
+  if (!student&&!teacher) return;
+  const step = getStep();
+  if (action==='stage') {
+    const stage=Number(value);
+    if (stage===state.stage || !stages[stage] || (!teacher&&stage>state.unlocked)) return;
+    state.stage=stage;gotoStep();return;
+  }
+  if (action==='back' && state.steps[state.stage]>0) {
+    state.steps[state.stage]--;gotoStep();return;
+  }
+  if (action==='next' && state.done[step.id]) {
+    if (state.steps[state.stage]<stages[state.stage].steps.length-1) state.steps[state.stage]++;
+    else if (state.stage<stages.length-1) state.stage++;
+    gotoStep();return;
+  }
+  if (state.done[step.id]) return;
+  if (action==='hint') {
+    hintOpen=!hintOpen;render('[data-action="hint"]');return;
+  }
+  if (action==='reveal' && teacher) return reveal(step);
+  if (action==='check') return check(step);
+  if (action==='tray') {
+    return activeCake===null ? respond('先點選一個蛋糕。') : placeCake(activeCake,value);
+  }
+  if (action==='cake') activeCake=activeCake===Number(value)?null:Number(value);
+  if (action==='option') values(step).selected=value;
+  if (action==='exit-option') values(step)[key]=value;
+  if (action==='column') {
+    if (step.art==='one') values(step).selected=Number(value)===0?'left':'right';
+    else {
+      const m=modelData(step.q);
+      m.cols=toggle(m.cols,Number(value));
+    }
+  }
+  if (action==='row' || action==='mark') {
+    const m=modelData(step.q);
+    if (action==='row') {
+      m.rows=step.part==='practice' ? (m.rows.includes(Number(value))?[]:[Number(value)]) : toggle(m.rows,Number(value));
+    } else m.marks=toggle(m.marks,Number(value));
+  }
+  if (action==='clear') {
+    const m=modelData(step.q);
+    if (step.part==='pick-cols') m.cols=[];
+    else if (step.part==='count') m.marks=[];
+    else m.rows=[];
+  }
+  message='';
+  save();
+  const selector = `[data-action="${action}"]${value===undefined?'':`[data-value="${value}"]`}${key?`[data-key="${key}"]`:''}`;
+  render(selector);
+});
+app.addEventListener('dragstart', event=>{
+  const token=event.target.closest('[data-action="cake"][draggable="true"]');
+  if (token && event.dataTransfer) {
+    event.dataTransfer.setData('text/plain',token.dataset.value);
+    event.dataTransfer.effectAllowed='move';
+  }
+});
+app.addEventListener('dragover', event=>{
+  if (event.target.closest('[data-drop]')) event.preventDefault();
+});
+app.addEventListener('drop', event=>{
+  const target=event.target.closest('[data-drop]');
+  const value=event.dataTransfer?.getData('text/plain');
+  if (!target || !/^[0-3]$/.test(value||'')) return;
+  event.preventDefault();
+  placeCake(Number(value),target.dataset.drop);
+});
+
+try {
+  const savedStudent=JSON.parse(sessionStorage.getItem(sessionKey));
+  if (validStudent(savedStudent)) startStudent(savedStudent);
+} catch {}
+render();
